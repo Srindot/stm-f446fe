@@ -21,11 +21,6 @@ OBJS_S    = $(patsubst %.s,$(BUILD_DIR)/%.o,$(SRC_S))
 OBJS      = $(OBJS_C) $(OBJS_S)
 
 # --- Compiler Flags ---
-# -mcpu=cortex-m4: Specify the CPU core
-# -mthumb: Use the Thumb-2 instruction set
-# -Wall: Enable all warnings
-# -g: Generate debug information
-# -O0: No optimization (best for debugging)
 CPU      = -mcpu=cortex-m4
 FPU      = -mfpu=fpv4-sp-d16 -mfloat-abi=hard
 MCU      = $(CPU) -mthumb $(FPU)
@@ -38,8 +33,13 @@ LDFLAGS  = $(MCU) -T$(LINKER_SCRIPT) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref 
 
 # --- Build Rules ---
 
-# Default target
-all: $(BUILD_DIR)/$(TARGET).elf
+# Default target now builds BOTH the .elf and the .bin
+all: $(BUILD_DIR)/$(TARGET).elf $(BUILD_DIR)/$(TARGET).bin
+
+# Rule to generate the raw binary file (.bin) from the (.elf)
+$(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
+	@echo "Extracting raw binary: $@"
+	$(OBJCOPY) -O binary $< $@
 
 # Rule to build the final ELF file
 $(BUILD_DIR)/$(TARGET).elf: $(OBJS)
@@ -66,10 +66,9 @@ clean:
 	@echo "Cleaning build files..."
 	rm -rf $(BUILD_DIR)
 
-# Flash the code to the target using openocd
+# Flash the code to the target using st-flash
 flash: all
 	@echo "Flashing to target..."
-	openocd -f board/st_nucleo_f4.cfg \
-	        -c "program $(BUILD_DIR)/$(TARGET).elf verify reset exit"
+	sudo st-flash write $(BUILD_DIR)/$(TARGET).bin 0x08000000
 
 .PHONY: all clean flash
